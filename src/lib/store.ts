@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { chatService } from './chat';
+import { toast } from 'sonner';
 import type { Message, SessionInfo } from '../../worker/types';
 interface ChatStore {
   sessions: SessionInfo[];
@@ -21,41 +22,59 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isProcessing: false,
   streamingMessage: '',
   fetchSessions: async () => {
-    const res = await chatService.listSessions();
-    if (res.success && res.data) {
-      set({ sessions: res.data });
+    try {
+      const res = await chatService.listSessions();
+      if (res.success && res.data) {
+        set({ sessions: res.data });
+      }
+    } catch (error) {
+      toast.error("Failed to sync sketches");
     }
   },
   createSession: async (firstMessage) => {
-    const res = await chatService.createSession(undefined, undefined, firstMessage);
-    if (res.success && res.data) {
-      const sessionId = res.data.sessionId;
-      await get().fetchSessions();
-      await get().selectSession(sessionId);
-      return sessionId;
+    try {
+      const res = await chatService.createSession(undefined, undefined, firstMessage);
+      if (res.success && res.data) {
+        const sessionId = res.data.sessionId;
+        await get().fetchSessions();
+        await get().selectSession(sessionId);
+        return sessionId;
+      }
+      return null;
+    } catch (error) {
+      toast.error("Sketch creation failed");
+      return null;
     }
-    return null;
   },
   selectSession: async (sessionId) => {
-    chatService.switchSession(sessionId);
-    set({ currentSessionId: sessionId, messages: [], streamingMessage: '' });
-    const res = await chatService.getMessages();
-    if (res.success && res.data) {
-      set({ messages: res.data.messages || [] });
+    try {
+      chatService.switchSession(sessionId);
+      set({ currentSessionId: sessionId, messages: [], streamingMessage: '' });
+      const res = await chatService.getMessages();
+      if (res.success && res.data) {
+        set({ messages: res.data.messages || [] });
+      }
+    } catch (error) {
+      toast.error("Could not open sketchbook");
     }
   },
   deleteSession: async (sessionId) => {
-    const res = await chatService.deleteSession(sessionId);
-    if (res.success) {
-      const { currentSessionId } = get();
-      await get().fetchSessions();
-      if (currentSessionId === sessionId) {
-        set({ currentSessionId: null, messages: [] });
+    try {
+      const res = await chatService.deleteSession(sessionId);
+      if (res.success) {
+        const currentSessionId = get().currentSessionId;
+        await get().fetchSessions();
+        if (currentSessionId === sessionId) {
+          set({ currentSessionId: null, messages: [] });
+        }
+        toast.success("Sketch deleted");
       }
+    } catch (error) {
+      toast.error("Failed to delete sketch");
     }
   },
   sendMessage: async (content, model) => {
-    const { currentSessionId } = get();
+    const currentSessionId = get().currentSessionId;
     let sessionId = currentSessionId;
     if (!sessionId) {
       sessionId = await get().createSession(content);
@@ -67,34 +86,44 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       content,
       timestamp: Date.now()
     };
-    set(state => ({ 
+    set(state => ({
       messages: [...state.messages, userMsg],
       isProcessing: true,
-      streamingMessage: '' 
+      streamingMessage: ''
     }));
-    const res = await chatService.sendMessage(content, model, (chunk) => {
-      set(state => ({ streamingMessage: state.streamingMessage + chunk }));
-    });
-    if (res.success) {
-      const finalRes = await chatService.getMessages();
-      if (finalRes.success && finalRes.data) {
-        set({ 
-          messages: finalRes.data.messages || [], 
-          isProcessing: false, 
-          streamingMessage: '' 
-        });
-        await get().fetchSessions();
+    try {
+      const res = await chatService.sendMessage(content, model, (chunk) => {
+        set(state => ({ streamingMessage: state.streamingMessage + chunk }));
+      });
+      if (res.success) {
+        const finalRes = await chatService.getMessages();
+        if (finalRes.success && finalRes.data) {
+          set({
+            messages: finalRes.data.messages || [],
+            isProcessing: false,
+            streamingMessage: ''
+          });
+          await get().fetchSessions();
+        }
+      } else {
+        throw new Error(res.error || "Processing failed");
       }
-    } else {
+    } catch (error) {
       set({ isProcessing: false });
+      toast.error("The pen ran out of ink. Please try again.");
     }
   },
   clearMessages: async () => {
-    const { currentSessionId } = get();
+    const currentSessionId = get().currentSessionId;
     if (!currentSessionId) return;
-    const res = await chatService.clearMessages();
-    if (res.success) {
-      set({ messages: [] });
+    try {
+      const res = await chatService.clearMessages();
+      if (res.success) {
+        set({ messages: [] });
+        toast.success("Canvas cleared");
+      }
+    } catch (error) {
+      toast.error("Failed to clear canvas");
     }
   }
 }));

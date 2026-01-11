@@ -13,32 +13,38 @@ export function HomePage() {
     fetchSessions();
   }, [fetchSessions]);
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      <ThemeToggle />
-      {/* Desktop Layout */}
+    <div className="flex h-screen w-full overflow-hidden bg-background relative selection:bg-primary/20">
+      {/* Noise Texture Overlay for Paper Feel */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] mix-blend-multiply z-50 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
+      <ThemeToggle className="absolute top-4 right-4 z-50" />
       {!isMobile && (
-        <>
+        <div className="flex h-full w-full">
           <ChatSidebar />
-          <main className="flex-1 min-w-0 bg-background relative">
+          <main className="flex-1 min-w-0 bg-background relative shadow-inner">
             <ChatWindow />
           </main>
-        </>
+        </div>
       )}
-      {/* Mobile Layout with Sidebar Drawer */}
       {isMobile && (
         <SidebarProvider defaultOpen={false}>
           <div className="flex h-full w-full">
             <ChatSidebar />
             <main className="flex-1 min-w-0 bg-background relative">
               <div className="absolute left-4 top-4 z-20">
-                <SidebarTrigger />
+                <SidebarTrigger className="sketch-border bg-background hard-shadow-sm h-9 w-9" />
               </div>
               <ChatWindow />
             </main>
           </div>
         </SidebarProvider>
       )}
-      <Toaster richColors position="top-right" />
+      <Toaster 
+        richColors 
+        position="top-right" 
+        toastOptions={{
+          className: "sketch-border hard-shadow-sm font-bold",
+        }} 
+      />
     </div>
   );
 }
