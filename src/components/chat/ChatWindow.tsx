@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useChatStore } from '@/lib/store';
 import { MessageBubble } from './MessageBubble';
 import { SketchInput } from '@/components/sketch/SketchInput';
@@ -6,58 +7,42 @@ import { SketchButton } from '@/components/sketch/SketchButton';
 import { Send, Sparkles, Trash2, Settings2 } from 'lucide-react';
 import { MODELS } from '@/lib/chat';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
 const ChatWindow = React.memo(function ChatWindow() {
-  const messages = useChatStore(s => s.messages);
-  const isProcessing = useChatStore(s => s.isProcessing);
-  const streamingMessage = useChatStore(s => s.streamingMessage);
-  const sendMessage = useChatStore(s => s.sendMessage);
-  const clearMessages = useChatStore(s => s.clearMessages);
-  const currentSessionId = useChatStore(s => s.currentSessionId);
-  const sessions = useChatStore(s => s.sessions);
+  const messages = useChatStore(useShallow(s => s.messages));
+  const isProcessing = useChatStore(useShallow(s => s.isProcessing));
+  const streamingMessage = useChatStore(useShallow(s => s.streamingMessage));
+  const sendMessage = useChatStore(useShallow(s => s.sendMessage));
+  const clearMessages = useChatStore(useShallow(s => s.clearMessages));
+  const currentSessionId = useChatStore(useShallow(s => s.currentSessionId));
+  const sessions = useChatStore(useShallow(s => s.sessions));
   const [input, setInput] = useState('');
-  const [model, setModel] = useState(MODELS[0].id);
+  const [model, setModel] = useState(MODELS[0]?.id || '');
   const scrollRef = useRef<HTMLDivElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const inputRef = useRef(input);
-  const modelRef = useRef(model);
-  
-  useEffect(() => {
-    inputRef.current = input;
-  }, [input]);
-  
-  useEffect(() => {
-    modelRef.current = model;
-  }, [model]);
-
-  const debouncedSend = useCallback(() => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    const timeout = setTimeout(() => {
-      const currentInput = inputRef.current;
-      if (!currentInput.trim() || isProcessing) return;
-      sendMessage(currentInput, modelRef.current);
-      setInput('');
-    }, 300);
-    debounceTimeoutRef.current = timeout;
-  }, [isProcessing, sendMessage]);
-
-  const currentSession = useMemo(() => sessions.find(s => s.id === currentSessionId), [sessions, currentSessionId]);
-
-  useEffect(() => {
+  const currentSession = useMemo(() => 
+    sessions.find(s => s.id === currentSessionId), 
+    [sessions, currentSessionId]
+  );
+  const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
-      const scrollContainer = scrollRef.current;
-      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, streamingMessage]);
-
+  }, []);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, streamingMessage, scrollToBottom]);
+  const handleSend = useCallback(() => {
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    const trimmedInput = input.trim();
+    if (!trimmedInput || isProcessing) return;
+    sendMessage(trimmedInput, model);
+    setInput('');
+  }, [input, isProcessing, model, sendMessage]);
   useEffect(() => {
     return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     };
   }, []);
-
   return (
     <div className="flex flex-col h-full relative">
       <header className="h-16 border-b-2 border-foreground bg-background/90 backdrop-blur-md z-10 flex items-center justify-between px-6 shrink-0">
@@ -107,7 +92,7 @@ const ChatWindow = React.memo(function ChatWindow() {
               </div>
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} />
               ))}
@@ -122,7 +107,7 @@ const ChatWindow = React.memo(function ChatWindow() {
                   isStreaming
                 />
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -135,7 +120,7 @@ const ChatWindow = React.memo(function ChatWindow() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                debouncedSend();
+                handleSend();
               }
             }}
           />
@@ -146,7 +131,7 @@ const ChatWindow = React.memo(function ChatWindow() {
             <SketchButton
               size="icon"
               className="rounded-full h-11 w-11"
-              onClick={debouncedSend}
+              onClick={handleSend}
               disabled={!input.trim() || isProcessing}
             >
               <Send className="w-4.5 h-4.5" />
@@ -160,6 +145,4 @@ const ChatWindow = React.memo(function ChatWindow() {
     </div>
   );
 });
-
 export { ChatWindow };
-//
