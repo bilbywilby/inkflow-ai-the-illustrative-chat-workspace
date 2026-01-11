@@ -81,7 +81,8 @@ function runSetupCommands() {
     "bun add react-markdown@^9.0.1",
     "bun add remark-gfm@^4.0.0",
     "bun add lucide-react@latest",
-    "bun add zustand@^5.0.6"
+    "bun add zustand@^5.0.6",
+    "bun add react-markdown remark-gfm lucide-react zustand"
 ];
     
     if (commands.length === 0) {
