@@ -1,4 +1,4 @@
-import type { Message, ChatState, ToolCall, WeatherResult, MCPResult, ErrorResult, SessionInfo } from '../../worker/types';
+import type { ChatState, ToolCall } from '../../worker/types';
 export interface ChatResponse {
   success: boolean;
   data?: ChatState;

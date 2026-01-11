@@ -1,13 +1,13 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { useChatStore } from '@/lib/store';
 import { MessageBubble } from './MessageBubble';
 import { SketchInput } from '@/components/sketch/SketchInput';
 import { SketchButton } from '@/components/sketch/SketchButton';
 import { Send, Sparkles, Trash2, Settings2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { MODELS } from '@/lib/chat';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-export function ChatWindow() {
+
+const ChatWindow = React.memo(function ChatWindow() {
   const messages = useChatStore(s => s.messages);
   const isProcessing = useChatStore(s => s.isProcessing);
   const streamingMessage = useChatStore(s => s.streamingMessage);
@@ -18,24 +18,52 @@ export function ChatWindow() {
   const [input, setInput] = useState('');
   const [model, setModel] = useState(MODELS[0].id);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef(input);
+  const modelRef = useRef(model);
+  
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
+  
+  useEffect(() => {
+    modelRef.current = model;
+  }, [model]);
+
+  const debouncedSend = useCallback(() => {
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    const timeout = setTimeout(() => {
+      const currentInput = inputRef.current;
+      if (!currentInput.trim() || isProcessing) return;
+      sendMessage(currentInput, modelRef.current);
+      setInput('');
+    }, 300);
+    debounceTimeoutRef.current = timeout;
+  }, [isProcessing, sendMessage]);
+
   const currentSession = useMemo(() => sessions.find(s => s.id === currentSessionId), [sessions, currentSessionId]);
+
   useEffect(() => {
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current;
       scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
   }, [messages, streamingMessage]);
-  const handleSend = () => {
-    if (!input.trim() || isProcessing) return;
-    sendMessage(input, model);
-    setInput('');
-  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="flex flex-col h-full relative">
       <header className="h-16 border-b-2 border-foreground bg-background/90 backdrop-blur-md z-10 flex items-center justify-between px-6 shrink-0">
         <div className="flex flex-col min-w-0">
           <h1 className="sketch-font text-xl font-bold truncate max-w-[180px] md:max-w-md">
-            {currentSession?.title || 'Blank Sheet'}
+            {currentSession?.title ?? 'Blank Sheet'}
           </h1>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Workspace</p>
         </div>
@@ -107,7 +135,7 @@ export function ChatWindow() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                debouncedSend();
               }
             }}
           />
@@ -118,7 +146,7 @@ export function ChatWindow() {
             <SketchButton
               size="icon"
               className="rounded-full h-11 w-11"
-              onClick={handleSend}
+              onClick={debouncedSend}
               disabled={!input.trim() || isProcessing}
             >
               <Send className="w-4.5 h-4.5" />
@@ -131,4 +159,7 @@ export function ChatWindow() {
       </div>
     </div>
   );
-}
+});
+
+export { ChatWindow };
+//

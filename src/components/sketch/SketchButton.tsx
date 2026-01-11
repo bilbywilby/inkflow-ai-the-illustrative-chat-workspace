@@ -1,4 +1,3 @@
-import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button, ButtonProps } from '@/components/ui/button';
 interface SketchButtonProps extends Omit<ButtonProps, 'variant'> {

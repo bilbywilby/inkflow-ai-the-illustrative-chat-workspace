@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useChatStore } from '@/lib/store';
 import { SketchButton } from '@/components/sketch/SketchButton';
 import { Plus, Book, Trash2, MessageSquare } from 'lucide-react';
