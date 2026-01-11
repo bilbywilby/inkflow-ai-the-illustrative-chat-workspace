@@ -1,6 +1,6 @@
 # Cloudflare AI Chat Agent
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/bilbywilby/inkflow-ai-the-illustrative-chat-workspace)
 
 A production-ready full-stack AI chat application built on Cloudflare Workers. Features multi-session conversations, tool calling (web search, weather, MCP tools), streaming responses, and a modern React frontend with shadcn/ui. Powered by Cloudflare Durable Objects and AI Gateway for scalable, stateful AI experiences.
 
@@ -103,7 +103,7 @@ bun deploy
 
 This builds the frontend, bundles the Worker, and deploys via Wrangler.
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/bilbywilby/inkflow-ai-the-illustrative-chat-workspace)
 
 ### Production Tips
 
