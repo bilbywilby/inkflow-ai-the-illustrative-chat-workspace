@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { useChatStore } from '@/lib/store';
 import { MessageBubble } from './MessageBubble';
 import { SketchInput } from '@/components/sketch/SketchInput';
@@ -8,19 +7,19 @@ import { Send, Sparkles, Trash2, Settings2 } from 'lucide-react';
 import { MODELS } from '@/lib/chat';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 const ChatWindow = React.memo(function ChatWindow() {
-  const messages = useChatStore(useShallow(s => s.messages));
-  const isProcessing = useChatStore(useShallow(s => s.isProcessing));
-  const streamingMessage = useChatStore(useShallow(s => s.streamingMessage));
-  const sendMessage = useChatStore(useShallow(s => s.sendMessage));
-  const clearMessages = useChatStore(useShallow(s => s.clearMessages));
-  const currentSessionId = useChatStore(useShallow(s => s.currentSessionId));
-  const sessions = useChatStore(useShallow(s => s.sessions));
+  const messages = useChatStore(s => s.messages);
+  const isProcessing = useChatStore(s => s.isProcessing);
+  const streamingMessage = useChatStore(s => s.streamingMessage);
+  const sendMessage = useChatStore(s => s.sendMessage);
+  const clearMessages = useChatStore(s => s.clearMessages);
+  const currentSessionId = useChatStore(s => s.currentSessionId);
+  const sessions = useChatStore(s => s.sessions);
   const [input, setInput] = useState('');
   const [model, setModel] = useState(MODELS[0]?.id || '');
   const scrollRef = useRef<HTMLDivElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const currentSession = useMemo(() => 
-    sessions.find(s => s.id === currentSessionId), 
+  const currentSession = useMemo(() =>
+    sessions.find(s => s.id === currentSessionId),
     [sessions, currentSessionId]
   );
   const scrollToBottom = useCallback(() => {
@@ -32,15 +31,18 @@ const ChatWindow = React.memo(function ChatWindow() {
     scrollToBottom();
   }, [messages, streamingMessage, scrollToBottom]);
   const handleSend = useCallback(() => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
     const trimmedInput = input.trim();
     if (!trimmedInput || isProcessing) return;
     sendMessage(trimmedInput, model);
     setInput('');
   }, [input, isProcessing, model, sendMessage]);
   useEffect(() => {
+    const timeout = debounceTimeoutRef.current;
     return () => {
-      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (timeout) clearTimeout(timeout);
     };
   }, []);
   return (
