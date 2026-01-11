@@ -1,4 +1,3 @@
-import '@/lib/errorReporter';
 import { enableMapSet } from "immer";
 enableMapSet();
 import { StrictMode } from 'react'
@@ -32,4 +31,6 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+import '@/lib/errorReporter';
    
