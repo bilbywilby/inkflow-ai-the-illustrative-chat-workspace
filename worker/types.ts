@@ -1,20 +1,35 @@
 export interface ApiResponse<T = unknown> { success: boolean; data?: T; error?: string; }
-
 export interface WeatherResult {
   location: string;
   temperature: number;
   condition: string;
   humidity: number;
 }
-
 export interface MCPResult {
   content: string;
 }
-
 export interface ErrorResult {
   error: string;
 }
-
+export interface Entity {
+  id: string;
+  canonical: string;
+  type: string;
+  version: number;
+  firstMentioned: number;
+  lastMentioned: number;
+}
+export interface Relation {
+  sourceId: string;
+  targetId: string;
+  predicate: string;
+  weight: number;
+  mentions: number;
+}
+export interface KnowledgeGraph {
+  entities: Record<string, Entity>;
+  relations: Relation[];
+}
 export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -22,29 +37,26 @@ export interface Message {
   id: string;
   toolCalls?: ToolCall[];
 }
-
 export interface ToolCall {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
   result?: unknown;
 }
-
 export interface ChatState {
   messages: Message[];
   sessionId: string;
   isProcessing: boolean;
   model: string;
   streamingMessage?: string;
+  kg: KnowledgeGraph;
 }
-
 export interface SessionInfo {
   id: string;
   title: string;
   createdAt: number;
   lastActive: number;
 }
-
 export interface Tool {
   name: string;
   description: string;

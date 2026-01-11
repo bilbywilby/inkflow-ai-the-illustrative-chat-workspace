@@ -3,11 +3,13 @@ import { useChatStore } from '@/lib/store';
 import { MessageBubble } from './MessageBubble';
 import { SketchInput } from '@/components/sketch/SketchInput';
 import { SketchButton } from '@/components/sketch/SketchButton';
-import { Send, Sparkles, Trash2, Settings2, BrainCircuit, Activity } from 'lucide-react';
+import { Send, Sparkles, Trash2, BrainCircuit, Activity } from 'lucide-react';
 import { MODELS, chatService } from '@/lib/chat';
 import { getFusedContext } from '@/lib/hybrid-reconciler';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 const ChatWindow = React.memo(function ChatWindow() {
   const messages = useChatStore(s => s.messages);
   const isProcessing = useChatStore(s => s.isProcessing);
@@ -16,10 +18,11 @@ const ChatWindow = React.memo(function ChatWindow() {
   const clearMessages = useChatStore(s => s.clearMessages);
   const currentSessionId = useChatStore(s => s.currentSessionId);
   const sessions = useChatStore(s => s.sessions);
+  const kgData = useChatStore(s => s.kgData);
+  const setKgData = useChatStore(s => s.setKgData);
   const [input, setInput] = useState('');
   const [model, setModel] = useState(MODELS[0]?.id || '');
   const [isIngesting, setIsIngesting] = useState(false);
-  const [kgData, setKgData] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const currentSession = useMemo(() => sessions.find(s => s.id === currentSessionId), [sessions, currentSessionId]);
   const fusedContext = useMemo(() => {
@@ -30,10 +33,10 @@ const ChatWindow = React.memo(function ChatWindow() {
   useEffect(() => {
     if (currentSessionId) {
       chatService.getKG().then(res => {
-        if (res.success) setKgData(res.data);
+        if (res.success && res.data) setKgData(res.data);
       });
     }
-  }, [currentSessionId, messages]);
+  }, [currentSessionId, messages.length, setKgData]);
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, []);
@@ -69,9 +72,9 @@ const ChatWindow = React.memo(function ChatWindow() {
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Workspace</p>
         </div>
         <div className="flex items-center gap-2">
-          <SketchButton 
-            variant="ghost" 
-            size="sm" 
+          <SketchButton
+            variant="ghost"
+            size="sm"
             onClick={handleManualIngest}
             disabled={isIngesting || !currentSessionId}
             className="h-9 px-2 gap-2"
@@ -94,16 +97,40 @@ const ChatWindow = React.memo(function ChatWindow() {
           </SketchButton>
         </div>
       </header>
-      {fusedContext && fusedContext.entities.length > 0 && (
-        <div className="bg-muted/30 border-b-2 border-foreground/10 px-6 py-2 flex gap-2 overflow-x-auto no-scrollbar">
-          <span className="text-[9px] font-bold uppercase text-muted-foreground mt-1.5 shrink-0">Linked:</span>
-          {fusedContext.entities.map(e => (
-            <div key={e.id} className="sketch-border bg-white px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-hard-sm shrink-0">
-              <Sparkles className="w-2.5 h-2.5 text-primary" /> {e.canonical}
+      <AnimatePresence>
+        {fusedContext && fusedContext.entities.length > 0 && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-muted/30 border-b-2 border-foreground/10 px-6 py-2 flex gap-2 overflow-x-auto no-scrollbar shrink-0"
+          >
+            <span className="text-[9px] font-bold uppercase text-muted-foreground mt-1.5 shrink-0">Linked:</span>
+            <div className="flex gap-2">
+              {fusedContext.entities.map((e, idx) => (
+                <TooltipProvider key={e.id}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.div 
+                        initial={{ scale: 0.8, x: -10 }}
+                        animate={{ scale: 1, x: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="sketch-border bg-white px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-hard-sm shrink-0 cursor-help hover:-translate-y-0.5 transition-transform"
+                      >
+                        <Sparkles className="w-2.5 h-2.5 text-primary" /> {e.canonical}
+                      </motion.div>
+                    </TooltipTrigger>
+                    <TooltipContent className="sketch-border hard-shadow text-[10px] bg-background text-foreground">
+                      <p>Type: {e.type}</p>
+                      <p>Mentions: {e.version}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-8 md:px-12 scroll-smooth">
         <div className="max-w-3xl mx-auto">
           {messages.length === 0 && !streamingMessage ? (
@@ -112,14 +139,15 @@ const ChatWindow = React.memo(function ChatWindow() {
                 <Sparkles className="w-12 h-12 text-primary" />
               </div>
               <h2 className="sketch-font text-4xl font-bold tracking-tight">Inkflow AI</h2>
+              <p className="text-muted-foreground italic text-sm max-w-xs">Start sketching your ideas with the power of a persistent Knowledge Graph.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
               {streamingMessage && (
-                <MessageBubble 
-                  message={{ id: 'streaming', role: 'assistant', content: streamingMessage, timestamp: Date.now() }} 
-                  isStreaming 
+                <MessageBubble
+                  message={{ id: 'streaming', role: 'assistant', content: streamingMessage, timestamp: Date.now() }}
+                  isStreaming
                 />
               )}
             </div>

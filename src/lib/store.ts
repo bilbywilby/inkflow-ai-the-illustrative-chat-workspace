@@ -1,19 +1,21 @@
 import { create } from 'zustand';
 import { chatService } from './chat';
 import { toast } from 'sonner';
-import type { Message, SessionInfo } from '../../worker/types';
+import type { Message, SessionInfo, KnowledgeGraph } from '../../worker/types';
 interface ChatStore {
   sessions: SessionInfo[];
   currentSessionId: string | null;
   messages: Message[];
   isProcessing: boolean;
   streamingMessage: string;
+  kgData: KnowledgeGraph | undefined;
   fetchSessions: () => Promise<void>;
   createSession: (firstMessage?: string) => Promise<string | null>;
   selectSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   sendMessage: (content: string, model: string) => Promise<void>;
   clearMessages: () => Promise<void>;
+  setKgData: (data: KnowledgeGraph) => void;
 }
 export const useChatStore = create<ChatStore>((set, get) => ({
   sessions: [],
@@ -21,6 +23,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   isProcessing: false,
   streamingMessage: '',
+  kgData: undefined,
+  setKgData: (data) => set({ kgData: data }),
   fetchSessions: async () => {
     try {
       const res = await chatService.listSessions();
@@ -49,10 +53,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   selectSession: async (sessionId) => {
     try {
       chatService.switchSession(sessionId);
-      set({ currentSessionId: sessionId, messages: [], streamingMessage: '' });
+      set({ currentSessionId: sessionId, messages: [], streamingMessage: '', kgData: undefined });
       const res = await chatService.getMessages();
       if (res.success && res.data) {
-        set({ messages: res.data.messages || [] });
+        set({ 
+          messages: res.data.messages || [],
+          kgData: res.data.kg
+        });
       }
     } catch (error) {
       toast.error("Could not open sketchbook");
@@ -65,7 +72,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const currentSessionId = get().currentSessionId;
         await get().fetchSessions();
         if (currentSessionId === sessionId) {
-          set({ currentSessionId: null, messages: [] });
+          set({ currentSessionId: null, messages: [], kgData: undefined });
         }
         toast.success("Sketch deleted");
       }
@@ -100,6 +107,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         if (finalRes.success && finalRes.data) {
           set({
             messages: finalRes.data.messages || [],
+            kgData: finalRes.data.kg,
             isProcessing: false,
             streamingMessage: ''
           });
@@ -119,7 +127,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const res = await chatService.clearMessages();
       if (res.success) {
-        set({ messages: [] });
+        set({ messages: [], kgData: { entities: {}, relations: [] } });
         toast.success("Canvas cleared");
       }
     } catch (error) {

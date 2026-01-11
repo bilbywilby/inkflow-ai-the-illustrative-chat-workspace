@@ -1,6 +1,6 @@
 import { Agent } from 'agents';
 import type { Env } from './core-utils';
-import type { ChatState, Message } from './types';
+import type { ChatState } from './types';
 import { ChatHandler } from './chat';
 import { API_RESPONSES } from './config';
 import { createMessage, createStreamResponse, createEncoder } from './utils';
@@ -63,8 +63,14 @@ export class ChatAgent extends Agent<Env, ChatState> {
             const assistantMessage = createMessage('assistant', response.content, response.toolCalls);
             const updatedMessages = [...this.state.messages, assistantMessage];
             // Post-processing: KG Ingestion
-            const updatedKg = await kgEngine.processCheckpoint(message + " " + response.content, this.state.sessionId, this.state.kg || { entities: {}, relations: [] });
-            this.setState({ ...this.state, messages: updatedMessages, isProcessing: false, kg: updatedKg });
+            const currentKg = this.state.kg || { entities: {}, relations: [] };
+            const updatedKg = await kgEngine.processCheckpoint(message + " " + response.content, this.state.sessionId, currentKg);
+            this.setState({ 
+              ...this.state, 
+              messages: updatedMessages, 
+              isProcessing: false, 
+              kg: updatedKg 
+            });
           } catch (e) {
             console.error('Streaming error:', e);
           } finally {
@@ -75,8 +81,14 @@ export class ChatAgent extends Agent<Env, ChatState> {
       }
       const response = await this.chatHandler!.processMessage(message, this.state.messages);
       const assistantMessage = createMessage('assistant', response.content, response.toolCalls);
-      const updatedKg = await kgEngine.processCheckpoint(message + " " + response.content, this.state.sessionId, this.state.kg || { entities: {}, relations: [] });
-      this.setState({ ...this.state, messages: [...this.state.messages, assistantMessage], isProcessing: false, kg: updatedKg });
+      const currentKg = this.state.kg || { entities: {}, relations: [] };
+      const updatedKg = await kgEngine.processCheckpoint(message + " " + response.content, this.state.sessionId, currentKg);
+      this.setState({ 
+        ...this.state, 
+        messages: [...this.state.messages, assistantMessage], 
+        isProcessing: false, 
+        kg: updatedKg 
+      });
       return Response.json({ success: true, data: this.state });
     } catch (error) {
       this.setState({ ...this.state, isProcessing: false });
@@ -85,7 +97,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
   }
   private async handleManualIngest(): Promise<Response> {
     const allText = this.state.messages.map(m => m.content).join('\n');
-    const updatedKg = await kgEngine.processCheckpoint(allText, this.state.sessionId, this.state.kg || { entities: {}, relations: [] });
+    const currentKg = this.state.kg || { entities: {}, relations: [] };
+    const updatedKg = await kgEngine.processCheckpoint(allText, this.state.sessionId, currentKg);
     this.setState({ ...this.state, kg: updatedKg });
     return Response.json({ success: true, data: updatedKg });
   }
