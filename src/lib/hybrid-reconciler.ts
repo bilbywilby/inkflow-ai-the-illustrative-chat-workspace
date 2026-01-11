@@ -6,37 +6,33 @@ export interface FusedContext {
 }
 export function getFusedContext(
   query: string,
-  kg: KnowledgeGraph | undefined,
+  kg: KnowledgeGraph,
   limit: number = 5
 ): FusedContext {
-  if (!kg || !kg.entities) {
-    return { entities: [], relations: [], score: 0 };
-  }
-  const queryWords = query.toLowerCase().split(/\W+/).filter(w => w.length > 2);
-  // 1. Identify seed entities in query with word boundary check
-  const seeds = Object.values(kg.entities).filter((e: Entity) => {
-    const canonical = e.canonical.toLowerCase();
-    return queryWords.some(word => canonical.includes(word) || e.id.includes(word));
-  });
-  if (seeds.length === 0) {
-    return { entities: [], relations: [], score: 0.2 };
-  }
-  // 2. Expand graph (1-hop)
-  const relevantRelations = kg.relations.filter((r: Relation) =>
+  // Prototype Hybrid Reconciler
+  // 1. Identify seed entities in query
+  const queryWords = query.toLowerCase().split(/\W+/);
+  const seeds = Object.values(kg.entities).filter(e => 
+    queryWords.includes(e.canonical.toLowerCase()) || 
+    queryWords.includes(e.id.toLowerCase())
+  );
+  // 2. Expand graph (1-hop for prototype)
+  const relevantRelations = kg.relations.filter(r => 
     seeds.some(s => s.id === r.sourceId || s.id === r.targetId)
   );
   const neighborIds = new Set(relevantRelations.flatMap(r => [r.sourceId, r.targetId]));
   const relevantEntities = Object.values(kg.entities)
-    .filter((e: Entity) => neighborIds.has(e.id))
+    .filter(e => neighborIds.has(e.id))
     .sort((a, b) => {
-      const aRecency = a.lastMentioned;
-      const bRecency = b.lastMentioned;
+      // Score = 0.3 KG weight + 0.1 Recency
+      const aRecency = a.lastMentioned / Date.now();
+      const bRecency = b.lastMentioned / Date.now();
       return bRecency - aRecency;
     })
     .slice(0, limit);
   return {
     entities: relevantEntities,
     relations: relevantRelations.slice(0, limit),
-    score: Math.min(1, seeds.length * 0.2 + 0.4)
+    score: relevantEntities.length > 0 ? 0.8 : 0.2
   };
 }

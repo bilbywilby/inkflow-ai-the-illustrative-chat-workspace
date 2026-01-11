@@ -1,4 +1,23 @@
-import { KnowledgeGraph, Entity, Relation } from './types';
+import { Message } from './types';
+export interface Entity {
+  id: string;
+  canonical: string;
+  type: string;
+  version: number;
+  firstMentioned: number;
+  lastMentioned: number;
+}
+export interface Relation {
+  sourceId: string;
+  targetId: string;
+  predicate: string;
+  weight: number;
+  mentions: number;
+}
+export interface KnowledgeGraph {
+  entities: Record<string, Entity>;
+  relations: Relation[];
+}
 export class KnowledgeGraphEngine {
   private static instance: KnowledgeGraphEngine;
   private constructor() {}
@@ -10,25 +29,19 @@ export class KnowledgeGraphEngine {
   }
   /**
    * Process a text checkpoint to extract entities and relations.
+   * In a real production app, this would call an LLM with a specific schema.
    */
   async processCheckpoint(text: string, sessionId: string, kg: KnowledgeGraph): Promise<KnowledgeGraph> {
-    if (!text || text.trim().length === 0) return kg;
-    // Simple extraction logic for the illustrative prototype
+    // Simple regex-based extraction as a prototype placeholder for LLM extraction
+    // We look for capitalized nouns or specific patterns
     const entityMatches = text.match(/[A-Z][a-z]+(?:\s[A-Z][a-z]+)*/g) || [];
     const timestamp = Date.now();
-    const newKg: KnowledgeGraph = { 
-      entities: { ...kg.entities }, 
-      relations: [...kg.relations] 
-    };
+    const newKg = { ...kg };
     entityMatches.forEach(name => {
       const id = name.toLowerCase().replace(/\s+/g, '_');
-      const existingEntity = newKg.entities[id];
-      if (existingEntity) {
-        newKg.entities[id] = {
-          ...existingEntity,
-          lastMentioned: timestamp,
-          version: existingEntity.version + 1
-        };
+      if (newKg.entities[id]) {
+        newKg.entities[id]!.lastMentioned = timestamp;
+        newKg.entities[id]!.version += 1;
       } else {
         newKg.entities[id] = {
           id,
@@ -40,22 +53,19 @@ export class KnowledgeGraphEngine {
         };
       }
     });
+    // Simple relation inference: if two entities appear in the same text block, weight their relation
     const uniqueIds = Array.from(new Set(entityMatches.map(n => n.toLowerCase().replace(/\s+/g, '_'))));
     for (let i = 0; i < uniqueIds.length; i++) {
       for (let j = i + 1; j < uniqueIds.length; j++) {
         const sourceId = uniqueIds[i]!;
         const targetId = uniqueIds[j]!;
-        const existingRelIndex = newKg.relations.findIndex(r =>
+        const existingRel = newKg.relations.find(r => 
           (r.sourceId === sourceId && r.targetId === targetId) ||
           (r.sourceId === targetId && r.targetId === sourceId)
         );
-        if (existingRelIndex !== -1) {
-          const rel = newKg.relations[existingRelIndex]!;
-          newKg.relations[existingRelIndex] = {
-            ...rel,
-            mentions: rel.mentions + 1,
-            weight: Math.min(1, (rel.weight * rel.mentions + 1) / (rel.mentions + 1))
-          };
+        if (existingRel) {
+          existingRel.weight = (existingRel.weight * existingRel.mentions + 1) / (existingRel.mentions + 1);
+          existingRel.mentions += 1;
         } else {
           newKg.relations.push({
             sourceId,

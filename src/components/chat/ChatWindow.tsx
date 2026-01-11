@@ -3,9 +3,11 @@ import { useChatStore } from '@/lib/store';
 import { MessageBubble } from './MessageBubble';
 import { SketchInput } from '@/components/sketch/SketchInput';
 import { SketchButton } from '@/components/sketch/SketchButton';
-import { Send, Sparkles, Trash2, Settings2 } from 'lucide-react';
-import { MODELS } from '@/lib/chat';
+import { Send, Sparkles, Trash2, Settings2, BrainCircuit, Activity } from 'lucide-react';
+import { MODELS, chatService } from '@/lib/chat';
+import { getFusedContext } from '@/lib/hybrid-reconciler';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 const ChatWindow = React.memo(function ChatWindow() {
   const messages = useChatStore(s => s.messages);
   const isProcessing = useChatStore(s => s.isProcessing);
@@ -16,35 +18,47 @@ const ChatWindow = React.memo(function ChatWindow() {
   const sessions = useChatStore(s => s.sessions);
   const [input, setInput] = useState('');
   const [model, setModel] = useState(MODELS[0]?.id || '');
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [kgData, setKgData] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const currentSession = useMemo(() =>
-    sessions.find(s => s.id === currentSessionId),
-    [sessions, currentSessionId]
-  );
-  const scrollToBottom = useCallback(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, []);
+  const currentSession = useMemo(() => sessions.find(s => s.id === currentSessionId), [sessions, currentSessionId]);
+  const fusedContext = useMemo(() => {
+    if (!kgData || messages.length === 0) return null;
+    const lastMsg = messages[messages.length - 1]?.content || "";
+    return getFusedContext(lastMsg, kgData);
+  }, [kgData, messages]);
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingMessage, scrollToBottom]);
-  const handleSend = useCallback(() => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
+    if (currentSessionId) {
+      chatService.getKG().then(res => {
+        if (res.success) setKgData(res.data);
+      });
     }
+  }, [currentSessionId, messages]);
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, []);
+  useEffect(() => { scrollToBottom(); }, [messages, streamingMessage, scrollToBottom]);
+  const handleSend = useCallback(() => {
     const trimmedInput = input.trim();
     if (!trimmedInput || isProcessing) return;
     sendMessage(trimmedInput, model);
     setInput('');
   }, [input, isProcessing, model, sendMessage]);
-  useEffect(() => {
-    const timeout = debounceTimeoutRef.current;
-    return () => {
-      if (timeout) clearTimeout(timeout);
-    };
-  }, []);
+  const handleManualIngest = async () => {
+    if (!currentSessionId) return;
+    setIsIngesting(true);
+    try {
+      const res = await chatService.triggerIngestion();
+      if (res.success) {
+        setKgData(res.data);
+        toast.success("Knowledge Graph Updated");
+      }
+    } catch (e) {
+      toast.error("Ingestion failed");
+    } finally {
+      setIsIngesting(false);
+    }
+  };
   return (
     <div className="flex flex-col h-full relative">
       <header className="h-16 border-b-2 border-foreground bg-background/90 backdrop-blur-md z-10 flex items-center justify-between px-6 shrink-0">
@@ -54,31 +68,42 @@ const ChatWindow = React.memo(function ChatWindow() {
           </h1>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Workspace</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <SketchButton 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleManualIngest}
+            disabled={isIngesting || !currentSessionId}
+            className="h-9 px-2 gap-2"
+          >
+            {isIngesting ? <Activity className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
+            <span className="hidden md:inline">Ingest</span>
+          </SketchButton>
           <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="w-[160px] h-9 sketch-border bg-background text-xs font-bold">
-              <Settings2 className="w-3.5 h-3.5 mr-2" />
+            <SelectTrigger className="w-[140px] md:w-[160px] h-9 sketch-border bg-background text-xs font-bold">
               <SelectValue placeholder="Pen" />
             </SelectTrigger>
             <SelectContent className="sketch-border hard-shadow">
               {MODELS.map(m => (
-                <SelectItem key={m.id} value={m.id} className="text-xs font-bold">
-                  {m.name}
-                </SelectItem>
+                <SelectItem key={m.id} value={m.id} className="text-xs font-bold">{m.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <SketchButton
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            onClick={clearMessages}
-            title="Burn Sheet"
-          >
-            <Trash2 className="w-4.5 h-4.5" />
+          <SketchButton variant="ghost" size="icon" className="h-9 w-9" onClick={clearMessages}>
+            <Trash2 className="w-4 h-4" />
           </SketchButton>
         </div>
       </header>
+      {fusedContext && fusedContext.entities.length > 0 && (
+        <div className="bg-muted/30 border-b-2 border-foreground/10 px-6 py-2 flex gap-2 overflow-x-auto no-scrollbar">
+          <span className="text-[9px] font-bold uppercase text-muted-foreground mt-1.5 shrink-0">Linked:</span>
+          {fusedContext.entities.map(e => (
+            <div key={e.id} className="sketch-border bg-white px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-hard-sm shrink-0">
+              <Sparkles className="w-2.5 h-2.5 text-primary" /> {e.canonical}
+            </div>
+          ))}
+        </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-8 md:px-12 scroll-smooth">
         <div className="max-w-3xl mx-auto">
           {messages.length === 0 && !streamingMessage ? (
@@ -86,27 +111,15 @@ const ChatWindow = React.memo(function ChatWindow() {
               <div className="w-24 h-24 sketch-border rounded-full flex items-center justify-center bg-muted/30 animate-pulse shadow-hard-sm">
                 <Sparkles className="w-12 h-12 text-primary" />
               </div>
-              <div className="space-y-2">
-                <h2 className="sketch-font text-4xl font-bold tracking-tight">Inkflow AI</h2>
-                <p className="text-muted-foreground max-w-sm italic text-sm">
-                  The canvas is waiting. Every stroke counts toward your final masterpiece.
-                </p>
-              </div>
+              <h2 className="sketch-font text-4xl font-bold tracking-tight">Inkflow AI</h2>
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))}
+              {messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
               {streamingMessage && (
-                <MessageBubble
-                  message={{
-                    id: 'streaming',
-                    role: 'assistant',
-                    content: streamingMessage,
-                    timestamp: Date.now()
-                  }}
-                  isStreaming
+                <MessageBubble 
+                  message={{ id: 'streaming', role: 'assistant', content: streamingMessage, timestamp: Date.now() }} 
+                  isStreaming 
                 />
               )}
             </div>
@@ -119,30 +132,14 @@ const ChatWindow = React.memo(function ChatWindow() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Sketch your thoughts..."
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
           />
-          <div className="absolute right-3 bottom-3 flex items-center gap-3">
-            <span className="text-[9px] text-muted-foreground font-bold uppercase hidden sm:inline-block bg-muted px-2 py-1 rounded-sm border border-foreground/5">
-              Enter to Send
-            </span>
-            <SketchButton
-              size="icon"
-              className="rounded-full h-11 w-11"
-              onClick={handleSend}
-              disabled={!input.trim() || isProcessing}
-            >
+          <div className="absolute right-3 bottom-3">
+            <SketchButton size="icon" className="rounded-full h-11 w-11" onClick={handleSend} disabled={!input.trim() || isProcessing}>
               <Send className="w-4.5 h-4.5" />
             </SketchButton>
           </div>
         </div>
-        <p className="mt-4 text-center text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] sketch-font">
-          Note: AI resources are shared. Use your ink thoughtfully.
-        </p>
       </div>
     </div>
   );

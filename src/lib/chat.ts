@@ -49,6 +49,16 @@ class ChatService {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   }
+  async triggerIngestion(): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/ingest`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  }
+  async getKG(): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/kg`);
+    if (!response.ok) return { success: false };
+    return await response.json();
+  }
   async clearMessages(): Promise<ChatResponse> {
     const response = await fetch(`${this.baseUrl}/clear`, { method: 'DELETE' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -84,11 +94,8 @@ export const renderToolCall = (toolCall: ToolCall): string => {
   if (!result) return `${toolCall.name}: Thinking...`;
   if (result.error) return `Error: ${result.error}`;
   switch (toolCall.name) {
-    case 'get_weather':
-      return `Weather: ${result.condition}, ${result.temperature}°C`;
-    case 'web_search':
-      return `Search: ${toolCall.arguments.query || 'Results found'}`;
-    default:
-      return `${toolCall.name}: Processed`;
+    case 'get_weather': return `Weather: ${result.condition}, ${result.temperature}°C`;
+    case 'web_search': return `Search: ${toolCall.arguments.query || 'Results'}`;
+    default: return `${toolCall.name}: Done`;
   }
 };
