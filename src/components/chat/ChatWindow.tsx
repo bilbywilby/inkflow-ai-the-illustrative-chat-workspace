@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 const ChatWindow = React.memo(function ChatWindow() {
+  // Zustand Zero-Tolerance: Primitive Selectors ONLY
   const messages = useChatStore(s => s.messages);
   const isProcessing = useChatStore(s => s.isProcessing);
   const streamingMessage = useChatStore(s => s.streamingMessage);
@@ -34,13 +35,19 @@ const ChatWindow = React.memo(function ChatWindow() {
     if (currentSessionId) {
       chatService.getKG().then(res => {
         if (res.success && res.data) setKgData(res.data);
+      }).catch(err => {
+        console.error("KG Fetch failed:", err);
       });
     }
   }, [currentSessionId, messages.length, setKgData]);
   const scrollToBottom = useCallback(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, []);
-  useEffect(() => { scrollToBottom(); }, [messages, streamingMessage, scrollToBottom]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, streamingMessage, scrollToBottom]);
   const handleSend = useCallback(() => {
     const trimmedInput = input.trim();
     if (!trimmedInput || isProcessing) return;
@@ -99,7 +106,8 @@ const ChatWindow = React.memo(function ChatWindow() {
       </header>
       <AnimatePresence>
         {fusedContext && fusedContext.entities.length > 0 && (
-          <motion.div 
+          <motion.div
+            key="fused-context-bar"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -107,15 +115,15 @@ const ChatWindow = React.memo(function ChatWindow() {
           >
             <span className="text-[9px] font-bold uppercase text-muted-foreground mt-1.5 shrink-0">Linked:</span>
             <div className="flex gap-2">
-              {fusedContext.entities.map((e, idx) => (
-                <TooltipProvider key={e.id}>
-                  <Tooltip>
+              <TooltipProvider>
+                {fusedContext.entities.map((e, idx) => (
+                  <Tooltip key={`${e.id}-${idx}`}>
                     <TooltipTrigger asChild>
-                      <motion.div 
+                      <motion.div
                         initial={{ scale: 0.8, x: -10 }}
                         animate={{ scale: 1, x: 0 }}
                         transition={{ delay: idx * 0.05 }}
-                        className="sketch-border bg-white px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-hard-sm shrink-0 cursor-help hover:-translate-y-0.5 transition-transform"
+                        className="sketch-border bg-white dark:bg-card px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-hard-sm shrink-0 cursor-help hover:-translate-y-0.5 transition-transform"
                       >
                         <Sparkles className="w-2.5 h-2.5 text-primary" /> {e.canonical}
                       </motion.div>
@@ -125,8 +133,8 @@ const ChatWindow = React.memo(function ChatWindow() {
                       <p>Mentions: {e.version}</p>
                     </TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
-              ))}
+                ))}
+              </TooltipProvider>
             </div>
           </motion.div>
         )}
@@ -146,7 +154,12 @@ const ChatWindow = React.memo(function ChatWindow() {
               {messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
               {streamingMessage && (
                 <MessageBubble
-                  message={{ id: 'streaming', role: 'assistant', content: streamingMessage, timestamp: Date.now() }}
+                  message={{ 
+                    id: 'streaming', 
+                    role: 'assistant', 
+                    content: streamingMessage, 
+                    timestamp: Date.now() 
+                  }}
                   isStreaming
                 />
               )}
@@ -160,15 +173,31 @@ const ChatWindow = React.memo(function ChatWindow() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Sketch your thoughts..."
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                handleSend(); 
+              } 
+            }}
           />
           <div className="absolute right-3 bottom-3">
-            <SketchButton size="icon" className="rounded-full h-11 w-11" onClick={handleSend} disabled={!input.trim() || isProcessing}>
+            <SketchButton 
+              size="icon" 
+              className="rounded-full h-11 w-11" 
+              onClick={handleSend} 
+              disabled={!input.trim() || isProcessing}
+            >
               <Send className="w-4.5 h-4.5" />
             </SketchButton>
           </div>
         </div>
       </div>
+      {/* Disclaimer as required by instructions */}
+      <footer className="px-4 pb-2 text-center">
+        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">
+          Note: AI capabilities are subject to global request limits across user applications.
+        </p>
+      </footer>
     </div>
   );
 });

@@ -29,6 +29,8 @@
     --muted: 0 0% 20%;
     --muted-foreground: 0 0% 70%;
     --border: 0 0% 90%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 40 30% 98%;
   }
   * {
     @apply border-border;
@@ -47,8 +49,14 @@
   .hard-shadow {
     box-shadow: 4px 4px 0px 0px #2c2c2c;
   }
+  .dark .hard-shadow {
+    box-shadow: 4px 4px 0px 0px #ffffff;
+  }
   .hard-shadow-sm {
     box-shadow: 2px 2px 0px 0px #2c2c2c;
+  }
+  .dark .hard-shadow-sm {
+    box-shadow: 2px 2px 0px 0px #ffffff;
   }
   .sketch-font {
     font-family: 'Fredericka the Great', cursive;
