@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useChatStore } from '@/lib/store';
 import { SketchButton } from '@/components/sketch/SketchButton';
 import { Plus, Book, Trash2, MessageSquare } from 'lucide-react';
@@ -22,8 +22,8 @@ export function ChatSidebar() {
         </h2>
       </div>
       <div className="p-4">
-        <SketchButton
-          onClick={() => createSession()}
+        <SketchButton 
+          onClick={() => createSession()} 
           className="w-full justify-start gap-2"
         >
           <Plus className="w-4 h-4" /> New Sketch
@@ -36,46 +36,35 @@ export function ChatSidebar() {
               <p className="text-sm italic">Empty shelf...</p>
             </div>
           ) : (
-            sessions.map((session) => {
-              const isActive = currentSessionId === session.id;
-              return (
-                <div
-                  key={session.id}
-                  className={cn(
-                    "group relative sketch-border p-3 cursor-pointer transition-all hover:rotate-1",
-                    isActive 
-                      ? "bg-accent hard-shadow translate-x-1 border-primary ring-1 ring-primary/20" 
-                      : "bg-card hover:bg-muted/50"
-                  )}
-                  style={isActive ? { backgroundImage: 'radial-gradient(var(--primary-foreground) 0.5px, transparent 0.5px)', backgroundSize: '10px 10px' } : {}}
-                  onClick={() => selectSession(session.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    <MessageSquare className={cn("w-4 h-4 mt-1 shrink-0", isActive && "text-primary")} />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "text-sm font-bold truncate pr-6",
-                        isActive && "sketch-font text-base"
-                      )}>
-                        {session.title}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
-                        Last edited {new Date(session.lastActive).toLocaleDateString()}
-                      </p>
-                    </div>
+            sessions.map((session) => (
+              <div 
+                key={session.id}
+                className={cn(
+                  "group relative sketch-border p-3 cursor-pointer transition-all hover:bg-muted/50",
+                  currentSessionId === session.id ? "bg-accent hard-shadow-sm translate-x-1" : "bg-card"
+                )}
+                onClick={() => selectSession(session.id)}
+              >
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="w-4 h-4 mt-1 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate pr-6">{session.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(session.lastActive).toLocaleDateString()}
+                    </p>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteSession(session.id);
-                    }}
-                    className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
                 </div>
-              );
-            })
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSession(session.id);
+                  }}
+                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))
           )}
         </div>
       </ScrollArea>
