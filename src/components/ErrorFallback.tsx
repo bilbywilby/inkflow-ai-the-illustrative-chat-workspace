@@ -1,5 +1,4 @@
 import { SketchButton } from '@/components/sketch/SketchButton';
-import { useNavigate } from 'react-router-dom';
 interface ErrorFallbackProps {
   error: Error;
   resetErrorBoundary: () => void;
@@ -7,12 +6,11 @@ interface ErrorFallbackProps {
   onGoHome?: () => void;
 }
 export function ErrorFallback({ error, resetErrorBoundary, onRetry, onGoHome }: ErrorFallbackProps) {
-  const navigate = useNavigate();
   const handleGoHome = () => {
     if (onGoHome) {
       onGoHome();
     } else {
-      navigate('/');
+      window.location.href = '/';
       resetErrorBoundary();
     }
   };
